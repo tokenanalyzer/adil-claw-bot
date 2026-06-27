@@ -1,26 +1,21 @@
-bot.on('text', async (ctx) => {
-  const userMessage = ctx.message.text;
-  const statusMsg = await ctx.reply('सर्च कर रहा हूँ... 🔍');
+const { Telegraf } = require('telegraf');
+const express = require('express');
+const app = express();
+const port = process.env.PORT || 10000;
 
-  try {
-    // 1. टूल्स लाएं
-    const tools = await composio.getTools({ apps: ['google_search'] });
-    
-    // 2. Gemini को टूल कॉन्फ़िगरेशन दें (यह लाइन बहुत ज़रूरी है)
-    const model = genAI.getGenerativeModel({ 
-        model: 'gemini-1.5-flash', 
-        tools: tools // यहाँ टूल्स पास करना ज़रूरी है
-    });
-    
-    // 3. टूल्स के साथ कंटेंट जनरेट करें
-    const result = await model.generateContent(userMessage);
-    
-    // 4. जवाब भेजें
-    const responseText = result.response.text();
-    await ctx.telegram.editMessageText(ctx.chat.id, statusMsg.message_id, null, responseText);
-    
-  } catch (error) {
-    console.error('Bot Error:', error); // यह लॉग्स में असल गलती बताएगा
-    await ctx.telegram.editMessageText(ctx.chat.id, statusMsg.message_id, null, 'Error: ' + error.message);
-  }
+// एरर हैंडलिंग ताकि बोट क्रैश न हो
+process.on('uncaughtException', (err) => console.error('Uncaught Exception:', err));
+process.on('unhandledRejection', (reason) => console.error('Unhandled Rejection:', reason));
+
+const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
+
+app.get('/', (req, res) => res.send('Bot is active!'));
+app.listen(port, () => console.log(`Server running on port ${port}`));
+
+bot.start((ctx) => ctx.reply('Bot is working!'));
+
+bot.on('text', async (ctx) => {
+    ctx.reply('मैं अभी सेटअप मोड में हूँ, थोडा इंतज़ार करें!');
 });
+
+bot.launch();
