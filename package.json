@@ -1,0 +1,16 @@
+{
+  "name": "adil-claw-bot",
+  "version": "1.0.0",
+  "description": "Telegram AI Bot for Data Scraping",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "telegraf": "^4.15.0",
+    "@google/generative-ai": "^0.2.0",
+    "composio-core": "latest",
+    "express": "^4.18.2",
+    "dotenv": "^16.4.5"
+  }
+}
