@@ -1,29 +1,29 @@
-require('dotenv').config();
 const { Telegraf } = require('telegraf');
-const express = require('express');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
+const { Composio } = require('composio-core');
 
-// बोट का सेटअप
+// अपनी API Keys को एनवायरनमेंट वेरिएबल्स से लोड करें
 const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
-const app = express();
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const composio = new Composio({ apiKey: process.env.COMPOSIO_API_KEY });
 
-// जब कोई बोट को स्टार्ट करेगा
-bot.start((ctx) => {
-  ctx.reply('Hello Boss! Adil Claw Bot चालू हो गया है और डेटा निकालने के लिए तैयार है। 🚀');
+bot.start((ctx) => ctx.reply('Adil Claw AI एक्टिव है! कुछ भी पूछो, मैं सर्च करके बताऊंगा।'));
+
+bot.on('text', async (ctx) => {
+  const userMessage = ctx.message.text;
+  const statusMsg = await ctx.reply('सर्च कर रहा हूँ... 🔍');
+
+  try {
+    const tools = await composio.getTools({ apps: ['google_search'] });
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash', tools: tools });
+    
+    const result = await model.generateContent(userMessage);
+    const responseText = result.response.text();
+    
+    await ctx.telegram.editMessageText(ctx.chat.id, statusMsg.message_id, null, responseText);
+  } catch (error) {
+    await ctx.telegram.editMessageText(ctx.chat.id, statusMsg.message_id, null, 'अभी कुछ तकनीकी दिक्कत है, फिर से कोशिश करें!');
+  }
 });
 
-// जब कोई नॉर्मल मैसेज भेजेगा
-bot.on('text', (ctx) => {
-  ctx.reply('आपका मैसेज मिल गया: ' + ctx.message.text + '\n(अभी मैं सिर्फ रिप्लाई कर रहा हूँ, अगले स्टेप में हम इसमें Gemini और Composio का दिमाग लगाएंगे!)');
-});
-
-// सर्वर को 24 घंटे चालू रखने के लिए
-const PORT = process.env.PORT || 3000;
-app.get('/', (req, res) => res.send('Adil Claw Bot is running smoothly!'));
-
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  bot.launch();
-});
-
-process.once('SIGINT', () => bot.stop('SIGINT'));
-process.once('SIGTERM', () => bot.stop('SIGTERM'));
+bot.launch().then(() => console.log('Bot is running on Render!'));
