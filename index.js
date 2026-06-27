@@ -1,21 +1,30 @@
 const { Telegraf } = require('telegraf');
 const express = require('express');
-const app = express();
-const port = process.env.PORT || 10000;
-
-// एरर हैंडलिंग ताकि बोट क्रैश न हो
-process.on('uncaughtException', (err) => console.error('Uncaught Exception:', err));
-process.on('unhandledRejection', (reason) => console.error('Unhandled Rejection:', reason));
+const { GoogleGenerativeAI } = require('@google/generative-ai');
+const { Composio } = require('composio-core');
 
 const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const composio = new Composio({ apiKey: process.env.COMPOSIO_API_KEY });
 
-app.get('/', (req, res) => res.send('Bot is active!'));
-app.listen(port, () => console.log(`Server running on port ${port}`));
+const app = express();
+app.get('/', (req, res) => res.send('Bot is healthy!'));
+app.listen(process.env.PORT || 10000);
 
-bot.start((ctx) => ctx.reply('Bot is working!'));
+bot.start((ctx) => ctx.reply('मैं पूरी तरह एक्टिव हूँ! अब पूछो क्या पूछना है?'));
 
 bot.on('text', async (ctx) => {
-    ctx.reply('मैं अभी सेटअप मोड में हूँ, थोडा इंतज़ार करें!');
+    const statusMsg = await ctx.reply('प्रोसेस कर रहा हूँ...');
+    try {
+        const tools = await composio.getTools({ apps: ['google_search'] });
+        const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash', tools: tools });
+        const result = await model.generateContent(ctx.message.text);
+        await ctx.telegram.editMessageText(ctx.chat.id, statusMsg.message_id, null, result.response.text());
+    } catch (e) {
+        // यहाँ रेंडर लॉग्स में असली एरर दिखेगा
+        console.error('बोट एरर:', e); 
+        await ctx.telegram.editMessageText(ctx.chat.id, statusMsg.message_id, null, 'सॉरी, सर्च करने में दिक्कत आ रही है।');
+    }
 });
 
 bot.launch();
