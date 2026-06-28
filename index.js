@@ -1,108 +1,50 @@
 const { Telegraf } = require('telegraf');
 const express = require('express');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
-const { Composio } = require('@composio/core');
 
-process.on('uncaughtException', (err) => {
-  console.error('[FATAL]', err.message);
-  process.exit(1);
-});
-process.on('unhandledRejection', (reason) => {
-  console.error('[FATAL]', reason);
-  process.exit(1);
-});
-
-const { TELEGRAM_BOT_TOKEN, GEMINI_API_KEY, COMPOSIO_API_KEY } = process.env;
-if (!TELEGRAM_BOT_TOKEN || !GEMINI_API_KEY || !COMPOSIO_API_KEY) {
-  console.error('[FATAL] Missing environment variables!');
+const { TELEGRAM_BOT_TOKEN, GEMINI_API_KEY, SERPAPI_KEY } = process.env;
+if (!TELEGRAM_BOT_TOKEN || !GEMINI_API_KEY || !SERPAPI_KEY) {
+  console.error('[FATAL] Missing env vars');
   process.exit(1);
 }
 
 const app = express();
-const PORT = process.env.PORT || 10000;
 app.get('/health', (req, res) => res.send('OK'));
-app.listen(PORT, () => console.log(`Server on port ${PORT}`));
+app.listen(process.env.PORT || 10000, () => console.log('Server ready'));
 
 const bot = new Telegraf(TELEGRAM_BOT_TOKEN);
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-const composio = new Composio({ apiKey: COMPOSIO_API_KEY });
+
+async function searchWeb(query) {
+  const url = `https://serpapi.com/search.json?q=${encodeURIComponent(query)}&api_key=${SERPAPI_KEY}&num=5`;
+  const res = await fetch(url);
+  const data = await res.json();
+  const results = (data.organic_results || [])
+    .slice(0, 5)
+    .map(r => `${r.title}: ${r.snippet}`)
+    .join('\n\n');
+  return results || 'No results found';
+}
 
 bot.start((ctx) => ctx.reply('Salaam! Koi bhi sawaal poochho 🔍'));
 
 bot.on('text', async (ctx) => {
-  const userQuery = ctx.message.text;
+  const query = ctx.message.text;
   const statusMsg = await ctx.reply('🔍 Search kar raha hoon...');
-
   try {
-    const session = await composio.create(String(ctx.from.id), {
-      toolkits: ['serpapi'],
-      authConfigs: {
-        serpapi: 'ac_HfSUomaDKBya'
-      }
-    });
-
-    const composioTools = await session.tools();
-
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-2.0-flash',
-      tools: composioTools,
-    });
-
+    const searchResults = await searchWeb(query);
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
     const result = await model.generateContent(
-      `Search karo aur concise summary do: ${userQuery}`
+      `Yeh search results hain:\n\n${searchResults}\n\nIn results ki concise summary do Hinglish mein user ke liye jo poochh raha tha: "${query}"`
     );
-
-    const parts = result.response.candidates?.[0]?.content?.parts || [];
-    let finalText = '';
-
-    let toolCallHandled = false;
-    for (const part of parts) {
-      if (part.functionCall) {
-        toolCallHandled = true;
-        const toolResult = await session.execute(
-          part.functionCall.name,
-          part.functionCall.args || {}
-        );
-
-        const finalResult = await model.generateContent([
-          { text: `User query: ${userQuery}` },
-          {
-            functionResponse: {
-              name: part.functionCall.name,
-              response: toolResult,
-            },
-          },
-          { text: 'Ab in results ki concise summary do.' },
-        ]);
-
-        finalText = finalResult.response.text();
-        break;
-      }
-    }
-
-    if (!toolCallHandled) {
-      finalText = result.response.text();
-    }
-
-    await ctx.telegram.editMessageText(
-      ctx.chat.id,
-      statusMsg.message_id,
-      null,
-      finalText || 'Koi result nahi mila.'
-    );
-
+    const text = result.response.text();
+    await ctx.telegram.editMessageText(ctx.chat.id, statusMsg.message_id, null, text);
   } catch (err) {
-    console.error('[Error]', err.message || err);
-    await ctx.telegram.editMessageText(
-      ctx.chat.id,
-      statusMsg.message_id,
-      null,
-      `❌ Error: ${err.message}`
-    );
+    console.error('[Error]', err.message);
+    await ctx.telegram.editMessageText(ctx.chat.id, statusMsg.message_id, null, `❌ Error: ${err.message}`);
   }
 });
 
-bot.catch((err) => console.error('[Telegraf]', err));
 bot.launch().then(() => console.log('✅ Bot is live!'));
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
