@@ -16,7 +16,9 @@ app.listen(process.env.PORT || 10000, () => {
 });
 
 try {
-    const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
+    // 3. यहाँ तुम्हारा टोकन सीधा कोड में डाल दिया है (Render के Environment की ज़रूरत नहीं)
+    const bot = new Telegraf('8502050477:AAE3oXn-Xv8FVbwrGIkdMzg8PUunJj4b3EM');
+    
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
     const composioToolset = new ComposioToolSet({ apiKey: process.env.COMPOSIO_API_KEY });
 
@@ -35,7 +37,7 @@ try {
         }
     });
 
-    // 3. बोट स्टार्ट (अगर टोकन में दिक्कत हुई, तो यहाँ पकड़ा जाएगा)
+    // 4. बोट स्टार्ट (अब ये 100% कनेक्ट होगा अगर टोकन ज़िंदा है)
     bot.launch().then(() => {
         console.log('✅ Telegram Bot Started Successfully!');
     }).catch((err) => {
