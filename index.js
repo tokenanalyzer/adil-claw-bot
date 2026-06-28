@@ -1,14 +1,14 @@
 const { Telegraf } = require('telegraf');
 const express = require('express');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
-const { Composio } = require('composio-core');
+const { ComposioToolSet } = require('composio-core'); // यहाँ ComposioToolSet का इस्तेमाल किया है
 
-// Bot and API setup
 const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const composio = new Composio({ apiKey: process.env.COMPOSIO_API_KEY });
 
-// Express setup to keep the bot alive
+// Composio की जगह ComposioToolSet सेट किया है
+const composioToolset = new ComposioToolSet({ apiKey: process.env.COMPOSIO_API_KEY });
+
 const app = express();
 app.get('/', (req, res) => res.send('Bot is active!'));
 app.listen(process.env.PORT || 10000);
@@ -18,8 +18,8 @@ bot.start((ctx) => ctx.reply('Adil Claw AI एक्टिव है! अब क
 bot.on('text', async (ctx) => {
     const statusMsg = await ctx.reply('सर्च कर रहा हूँ... 🔍');
     try {
-        // यहाँ हमने composio.getAppTools का इस्तेमाल किया है
-        const tools = await composio.getAppTools({ apps: ['google_search'] });
+        // अब यहाँ getTools 100% काम करेगा
+        const tools = await composioToolset.getTools({ apps: ['google_search'] });
         
         const model = genAI.getGenerativeModel({ 
             model: 'gemini-1.5-flash', 
