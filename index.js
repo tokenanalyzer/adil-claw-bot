@@ -33,7 +33,7 @@ bot.on('text', async (ctx) => {
   const statusMsg = await ctx.reply('🔍 Search kar raha hoon...');
   try {
     const searchResults = await searchWeb(query);
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
     const result = await model.generateContent(
       `Yeh search results hain:\n\n${searchResults}\n\nIn results ki concise summary do Hinglish mein user ke liye jo poochh raha tha: "${query}"`
     );
