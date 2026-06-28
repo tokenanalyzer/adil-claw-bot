@@ -6,7 +6,7 @@
     "start": "node index.js"
   },
   "dependencies": {
-    "@composio/core": "0.1.28",
+    "@composio/core": "latest",
     "@google/generative-ai": "0.21.0",
     "express": "4.21.2",
     "telegraf": "4.16.3"
