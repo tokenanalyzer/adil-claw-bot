@@ -1,29 +1,47 @@
 const { Telegraf } = require('telegraf');
 const express = require('express');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
-const { ComposioToolSet } = require('composio-core'); 
+const { ComposioToolSet } = require('composio-core');
 
-const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const composioToolset = new ComposioToolSet({ apiKey: process.env.COMPOSIO_API_KEY });
+// 1. सर्वर को क्रैश (Status 1) होने से रोकने का ब्रह्मास्त्र
+process.on('uncaughtException', (err) => console.log('🔥 Fatal Error:', err.message));
+process.on('unhandledRejection', (err) => console.log('🔥 Promise Error:', err.message));
 
 const app = express();
-app.get('/', (req, res) => res.send('Bot is active!'));
-app.listen(process.env.PORT || 10000);
+app.get('/', (req, res) => res.send('सर्वर बिना क्रैश हुए चल रहा है!'));
 
-bot.start((ctx) => ctx.reply('Adil Claw AI एक्टिव है!'));
-
-bot.on('text', async (ctx) => {
-    const statusMsg = await ctx.reply('सर्च कर रहा हूँ... 🔍');
-    try {
-        const tools = await composioToolset.getTools({ apps: ['google_search'] });
-        const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash', tools: tools });
-        const result = await model.generateContent(ctx.message.text);
-        await ctx.telegram.editMessageText(ctx.chat.id, statusMsg.message_id, null, result.response.text());
-    } catch (error) {
-        // यह लाइन असली एरर को टेलीग्राम पर भेज देगी
-        await ctx.telegram.editMessageText(ctx.chat.id, statusMsg.message_id, null, 'असली एरर यह है: ' + error.message);
-    }
+// 2. एक्सप्रेस सर्वर स्टार्ट (यह सर्वर को जिंदा रखेगा)
+app.listen(process.env.PORT || 10000, () => {
+    console.log('✅ Web Server Running!');
 });
 
-bot.launch();
+try {
+    const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    const composioToolset = new ComposioToolSet({ apiKey: process.env.COMPOSIO_API_KEY });
+
+    bot.start((ctx) => ctx.reply('Adil Claw AI एक्टिव है!'));
+
+    bot.on('text', async (ctx) => {
+        try {
+            const statusMsg = await ctx.reply('सर्च कर रहा हूँ... 🔍');
+            const tools = await composioToolset.getTools({ apps: ['google_search'] });
+            const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash', tools: tools });
+            const result = await model.generateContent(ctx.message.text);
+            await ctx.telegram.editMessageText(ctx.chat.id, statusMsg.message_id, null, result.response.text());
+        } catch (error) {
+            console.log('Runtime Error:', error.message);
+            ctx.reply('सर्च में दिक्कत: ' + error.message);
+        }
+    });
+
+    // 3. बोट स्टार्ट (अगर टोकन में दिक्कत हुई, तो यहाँ पकड़ा जाएगा)
+    bot.launch().then(() => {
+        console.log('✅ Telegram Bot Started Successfully!');
+    }).catch((err) => {
+        console.log('❌ Telegram Connection Error:', err.message);
+    });
+
+} catch (e) {
+    console.log('❌ Setup Error:', e.message);
+}
